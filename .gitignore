@@ -108,3 +108,4 @@ bitcoin-build/*.tar.gz
 
 #Django
 db.*
+booking/migrations
