@@ -1,5 +1,5 @@
 import json
-from booking.models import Dealer, Vehicle, Availability, Booking
+from booking.models import Dealer, Vehicle, Booking
 from datetime import datetime
 
 
@@ -11,8 +11,6 @@ def run():
     dealers.delete()
     vehicles = Vehicle.objects.all()
     vehicles.delete()
-    availabilities = Availability.objects.all()
-    availabilities.delete()
     bookings = Booking.objects.all()
     bookings.delete()
 
@@ -40,14 +38,13 @@ def run():
             vehicle_to_save.model = vehicle["model"]
             vehicle_to_save.fuel = vehicle["fuel"]
             vehicle_to_save.transmission = vehicle["transmission"]
+            availability_to_save = ""
             for availability in vehicle["availability"]:
-                availability_to_save = Availability()
-                availability_to_save.key = availability
+                availability_to_save += availability + ":"
                 times = ""
                 for time in vehicle["availability"][availability]:
                     times = times + time + " "
-                availability_to_save.value = times.rstrip()
-                availability_to_save.save()
+                availability_to_save += times.rstrip() + "\n"
             vehicle_to_save.availability = availability_to_save
             vehicle_to_save.save()
 

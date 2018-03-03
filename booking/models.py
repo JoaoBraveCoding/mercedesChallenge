@@ -9,12 +9,9 @@ class Dealer(models.Model):
     closed = models.CharField(max_length=200)
 
     def __str__(self):
-        return "id: " + self.id + "\n" + "name: " + self.name + "\n" + "location: " + str(self.latitude) + " " + str(self.longitude) + \
-    "\n" + "closed: " + self.closed
-
-class Availability(models.Model):
-    key = models.CharField(max_length=200)
-    value = models.CharField(max_length=200)  # TODO might need to change
+        return "id: " + self.id + "\n" + "name: " + self.name + "\n" + "location: " + str(self.latitude) + " " + str(
+            self.longitude) + \
+               "\n" + "closed: " + self.closed
 
 
 class Vehicle(models.Model):
@@ -23,9 +20,11 @@ class Vehicle(models.Model):
     model = models.CharField(max_length=200)
     fuel = models.CharField(max_length=200)
     transmission = models.CharField(max_length=200)
-    availability = models.ForeignKey(Availability, models.CASCADE)  # TODO might need to change
+    availability = models.TextField(null=True)
+
     def __str__(self):
         return "id: " + self.id
+
 
 class Booking(models.Model):
     id = models.CharField(max_length=36, primary_key=True)
@@ -35,4 +34,4 @@ class Booking(models.Model):
     pickupDate = models.DateTimeField(null=True)
     createdAt = models.DateTimeField(null=True)
     canceledAt = models.DateTimeField(null=True)
-    cancelledReason = models.TextField
+    cancelledReason = models.TextField(null=True)
