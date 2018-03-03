@@ -1,4 +1,5 @@
 from django.db import models
+import json
 
 
 class Dealer(models.Model):
@@ -25,6 +26,9 @@ class Vehicle(models.Model):
     def __str__(self):
         return "id: " + self.id
 
+    def toJSON(self):
+        return json.dumps(self, default=lambda o: o.__dict__,
+                          sort_keys=True, indent=4)
 
 class Booking(models.Model):
     id = models.CharField(max_length=36, primary_key=True)

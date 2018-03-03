@@ -3,10 +3,8 @@ from booking.models import Dealer, Vehicle, Booking
 from datetime import datetime
 
 
-
 def run():
     # Delete db
-
     dealers = Dealer.objects.all()
     dealers.delete()
     vehicles = Vehicle.objects.all()
@@ -30,14 +28,15 @@ def run():
         dealer_to_save.closed = times.rstrip()
         dealer_to_save.save()
 
-        #Create and save vehicles
+        # Create and save vehicles
         for vehicle in dealer["vehicles"]:
-            vehicle_to_save =  Vehicle()
+            vehicle_to_save = Vehicle()
             vehicle_to_save.id = vehicle["id"]
             vehicle_to_save.dealerId = dealer_to_save
             vehicle_to_save.model = vehicle["model"]
             vehicle_to_save.fuel = vehicle["fuel"]
             vehicle_to_save.transmission = vehicle["transmission"]
+            # Create availability strings
             availability_to_save = ""
             for availability in vehicle["availability"]:
                 availability_to_save += availability + ":"
@@ -48,6 +47,7 @@ def run():
             vehicle_to_save.availability = availability_to_save
             vehicle_to_save.save()
 
+    # Create booking
     for booking in data1["bookings"]:
         booking_to_save = Booking()
         booking_to_save.id = booking["id"]
@@ -58,21 +58,4 @@ def run():
         booking_to_save.createdAt = datetime.strptime(booking["createdAt"], '%Y-%m-%dT%H:%M:%S.%f')
         booking_to_save.save()
 
-
     json_data.close()
-
-
-
-    # e.g. add a new location
-    # l = Location()
-    # l.name = 'Berlin'
-    # l.save()
-    #
-    # # this is an example to access your model
-    # locations = Location.objects.all()
-    # print locations
-    #
-    # # e.g. delete the location
-    # berlin = Location.objects.filter(name='Berlin')
-    # print berlin
-    # berlin.delete()
