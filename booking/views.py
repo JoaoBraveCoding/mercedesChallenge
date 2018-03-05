@@ -1,3 +1,4 @@
+import math
 from django.http import HttpResponse
 from .models import Dealer, Booking, Vehicle
 import json
@@ -32,6 +33,25 @@ def dealer(request):
     return HttpResponse(json.dumps(json_response_pretty))
 
 
+def find_dealer(request):
+    print(request.META.get("HTTP_MODEL"))
+    vehicles = Vehicle.objects.filter(model=request.META.get("HTTP_MODEL"), fuel=request.META.get("HTTP_FUEL"), transmission=
+                                        request.META.get("HTTP_TRANSMISSION"))
+    dealers_id = vehicles.values_list('dealerId', flat=True).distinct()
+    if len(dealers_id) == 0:
+        return HttpResponse(0)
+    dealers = Dealer.objects.filter(pk__in=dealers_id)
+    user_pos = (float(request.META.get("HTTP_LATITUDE")), float(request.META.get("HTTP_LONGITUDE")))
+    best_distance = -1
+    for dealer in dealers:
+        current_distance = distance(user_pos, (dealer.latitude, dealer.longitude))
+        if current_distance < best_distance or best_distance == -1:
+            best_distance = current_distance
+            best_dealer = dealer
+
+    return HttpResponse(best_dealer.id)
+
+
 def list_by(attribute):
     attribute_types = Vehicle.objects.order_by(attribute).values_list(attribute, flat=True).distinct()
     json_response = {}
@@ -42,3 +62,17 @@ def list_by(attribute):
 
     json_response_pretty = {attribute + 's': json_response}
     return HttpResponse(json.dumps(json_response_pretty))
+
+
+def distance(origin, destination):
+    lat1, lon1 = origin
+    lat2, lon2 = destination
+    radius = 6371  # km
+
+    d_lat = math.radians(lat2 - lat1)
+    d_lon = math.radians(lon2 - lon1)
+    a = (math.sin(d_lat / 2) * math.sin(d_lat / 2) +
+         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
+         math.sin(d_lon / 2) * math.sin(d_lon / 2))
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return radius * c

@@ -4,8 +4,9 @@ from . import views
 
 urlpatterns = [
     path('', views.index, name='index'),
-    path('models', views.models, name='models'),
-    path('fuels', views.fuels, name='fuels'),
-    path('transmissions', views.transmission, name='transmissions'),
-    path('dealers', views.dealer, name='dealers')
+    path('vehicles/models', views.models, name='models'),
+    path('vehicles/fuels', views.fuels, name='fuels'),
+    path('vehicles/transmissions', views.transmission, name='transmissions'),
+    path('dealers', views.dealer, name='dealers'),
+    path('dealers/find', views.find_dealer, name='find_dealer')
 ]
