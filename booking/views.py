@@ -1,7 +1,9 @@
+from datetime import datetime
 import math
 from django.http import HttpResponse
 from .models import Dealer, Booking, Vehicle
 import json
+import uuid
 
 
 # Create your views here.
@@ -54,6 +56,57 @@ def find_dealer(request):
 
     json_response_pretty = {"dealers": json_response}
     return HttpResponse(json.dumps(json_response_pretty))
+
+
+def new_booking(request):
+    desired_time_slot = datetime.strptime(request.META.get("HTTP_PICKUPDATE"), '%Y-%m-%dT%H:%M:%S')
+    desired_vehicle = Vehicle.objects.get(id=request.META.get("HTTP_VEHICLEID"))
+    bookings = Booking.objects.filter(vehicleId=desired_vehicle.id, canceledAt=None)
+
+    vehicle_availability = desired_vehicle.availability.splitlines()
+    for i in range(len(vehicle_availability)):
+        vehicle_availability[i] = vehicle_availability[i].split(' ')
+
+    if not exists_availability(desired_time_slot, vehicle_availability):
+        return HttpResponse("The vehicle you requested is not available at the time you requested")
+
+    if not no_double_booking(desired_time_slot, bookings):
+        return HttpResponse("There is already a test drive for that time and vehicle")
+
+    booking_to_save = Booking.objects.create(id=uuid.uuid4(), vehicleId=desired_vehicle,
+                                             firstName=request.META.get("HTTP_FIRSTNAME"),
+                                             lastName=request.META.get("HTTP_LASTNAME"),
+                                             pickupDate=desired_time_slot,
+                                             createdAt=datetime.now())
+    booking_to_save.save()
+    return HttpResponse("Success")
+
+
+def cancel_booking(request):
+    booking_to_cancel = Booking.objects.get(id=request.META.get("HTTP_ID"))
+    booking_to_cancel.cancelledReason = request.META.get("HTTP_CANCELLEDREASON")
+    booking_to_cancel.canceledAt = datetime.now()
+    booking_to_cancel.save()
+    return HttpResponse("Booking canceled successfully")
+
+
+def no_double_booking(desired_time_slot, bookings):
+    for booking in bookings:
+        if desired_time_slot == booking.pickupDate:
+            if booking.canceledAt is None:
+                return False
+            else:
+                return True
+    return True
+
+
+def exists_availability(desired_time_slot, vehicle_availability):
+    for i in range(len(vehicle_availability)):
+        if vehicle_availability[i][0] == desired_time_slot.strftime('%A').lower():
+            for j in range(1, len(vehicle_availability[i])):
+                if desired_time_slot.strftime('%H%M') == vehicle_availability[i][j]:
+                    return True
+    return False
 
 
 def list_by(attribute):

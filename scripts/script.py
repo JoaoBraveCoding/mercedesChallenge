@@ -39,10 +39,10 @@ def run():
             # Create availability strings
             availability_to_save = ""
             for availability in vehicle["availability"]:
-                availability_to_save += availability + ":"
-                times = ""
+                availability_to_save += availability
+                times = " "
                 for time in vehicle["availability"][availability]:
-                    times = times + time + " "
+                    times += time + " "
                 availability_to_save += times.rstrip() + "\n"
             vehicle_to_save.availability = availability_to_save
             vehicle_to_save.save()
