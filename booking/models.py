@@ -5,8 +5,8 @@ import json
 class Dealer(models.Model):
     id = models.CharField(max_length=36, primary_key=True)
     name = models.CharField(max_length=200)
-    latitude = models.IntegerField(default=0)
-    longitude = models.IntegerField(default=0)
+    latitude = models.FloatField(default=0)
+    longitude = models.FloatField(default=0)
     closed = models.CharField(max_length=200)
 
     def __str__(self):

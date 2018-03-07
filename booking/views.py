@@ -34,13 +34,13 @@ def dealer(request):
 
 
 def find_dealer(request):
-    print(request.META.get("HTTP_MODEL"))
-    vehicles = Vehicle.objects.filter(model=request.META.get("HTTP_MODEL"), fuel=request.META.get("HTTP_FUEL"), transmission=
-                                        request.META.get("HTTP_TRANSMISSION"))
+    vehicles = Vehicle.objects.filter(model=request.META.get("HTTP_MODEL"), fuel=request.META.get("HTTP_FUEL"),
+                                      transmission=request.META.get("HTTP_TRANSMISSION"))
     dealers_id = vehicles.values_list('dealerId', flat=True).distinct()
     if len(dealers_id) == 0:
         return HttpResponse(0)
     dealers = Dealer.objects.filter(pk__in=dealers_id)
+
     user_pos = (float(request.META.get("HTTP_LATITUDE")), float(request.META.get("HTTP_LONGITUDE")))
     best_distance = -1
     for dealer in dealers:
@@ -49,7 +49,11 @@ def find_dealer(request):
             best_distance = current_distance
             best_dealer = dealer
 
-    return HttpResponse(best_dealer.id)
+    json_response = {"id": best_dealer.id, "name": best_dealer.name, "latitude": best_dealer.latitude,
+                     "longitude": best_dealer.longitude}
+
+    json_response_pretty = {"dealers": json_response}
+    return HttpResponse(json.dumps(json_response_pretty))
 
 
 def list_by(attribute):
