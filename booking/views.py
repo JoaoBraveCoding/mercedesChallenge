@@ -1,5 +1,7 @@
 from datetime import datetime
 import math
+from operator import itemgetter
+
 from django.http import HttpResponse
 from .models import Dealer, Booking, Vehicle
 import json
@@ -40,28 +42,33 @@ def find_dealer(request):
                                       transmission=request.META.get("HTTP_TRANSMISSION"))
     dealers_id = vehicles.values_list('dealerId', flat=True).distinct()
     if len(dealers_id) == 0:
-        return HttpResponse(0)
+        return HttpResponse(json.dumps({"dealers": []}))
     dealers = Dealer.objects.filter(pk__in=dealers_id)
 
     user_pos = (float(request.META.get("HTTP_LATITUDE")), float(request.META.get("HTTP_LONGITUDE")))
-    best_distance = -1
+    dealers_to_return = []
     for dealer in dealers:
         current_distance = distance(user_pos, (dealer.latitude, dealer.longitude))
-        if current_distance < best_distance or best_distance == -1:
-            best_distance = current_distance
-            best_dealer = dealer
+        dealers_to_return.append([dealer, current_distance])
 
-    json_response = {"id": best_dealer.id, "name": best_dealer.name, "latitude": best_dealer.latitude,
-                     "longitude": best_dealer.longitude}
+    dealers_to_return = sorted(dealers_to_return, key=itemgetter(1))
+
+    json_response = []
+    for dealer in dealers_to_return:
+        to_append = {"id": dealer[0].id, "name": dealer[0].name, "latitude": dealer[0].latitude,
+                     "longitude": dealer[0].longitude}
+        json_response.append(to_append)
 
     json_response_pretty = {"dealers": json_response}
+
     return HttpResponse(json.dumps(json_response_pretty))
 
 
 def new_booking(request):
     desired_time_slot = datetime.strptime(request.META.get("HTTP_PICKUPDATE"), '%Y-%m-%dT%H:%M:%S')
     desired_vehicle = Vehicle.objects.get(id=request.META.get("HTTP_VEHICLEID"))
-    bookings = Booking.objects.filter(vehicleId=desired_vehicle.id, canceledAt__isnull=True, cancelledReason__isnull=True)
+    bookings = Booking.objects.filter(vehicleId=desired_vehicle.id, canceledAt__isnull=True,
+                                      cancelledReason__isnull=True)
 
     vehicle_availability = desired_vehicle.availability.splitlines()
     for i in range(len(vehicle_availability)):
