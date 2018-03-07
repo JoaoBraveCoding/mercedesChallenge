@@ -61,7 +61,7 @@ def find_dealer(request):
 def new_booking(request):
     desired_time_slot = datetime.strptime(request.META.get("HTTP_PICKUPDATE"), '%Y-%m-%dT%H:%M:%S')
     desired_vehicle = Vehicle.objects.get(id=request.META.get("HTTP_VEHICLEID"))
-    bookings = Booking.objects.filter(vehicleId=desired_vehicle.id, canceledAt=None)
+    bookings = Booking.objects.filter(vehicleId=desired_vehicle.id, canceledAt__isnull=True, cancelledReason__isnull=True)
 
     vehicle_availability = desired_vehicle.availability.splitlines()
     for i in range(len(vehicle_availability)):
@@ -93,10 +93,7 @@ def cancel_booking(request):
 def no_double_booking(desired_time_slot, bookings):
     for booking in bookings:
         if desired_time_slot == booking.pickupDate:
-            if booking.canceledAt is None:
-                return False
-            else:
-                return True
+            return False
     return True
 
 
