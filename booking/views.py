@@ -2,10 +2,14 @@ from datetime import datetime
 import math
 from operator import itemgetter
 
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseBadRequest
+from django.core.exceptions import ObjectDoesNotExist
+
+
 from .models import Dealer, Booking, Vehicle
 import json
 import uuid
+
 
 
 def models(request):
@@ -16,11 +20,11 @@ def fuels(request):
     return HttpResponse(list_by('fuel'))
 
 
-def transmission(request):
+def transmissions(request):
     return HttpResponse(list_by('transmission'))
 
 
-def dealer(request):
+def dealers(request):
     dealers = Vehicle.objects.order_by('dealerId').values_list('dealerId', flat=True).distinct()
     json_response = {}
 
@@ -35,6 +39,11 @@ def dealer(request):
 
 
 def find_dealer(request):
+    if request.META.get("HTTP_MODEL") is None or request.META.get("HTTP_FUEL") is None \
+            or request.META.get("HTTP_TRANSMISSION") is None:
+        return HttpResponseBadRequest(
+            json.dumps({"error": "One or more fields missing in the message header, the header has to have"
+                                                                            "model fuel and transmission"}), status=412)
     vehicles = Vehicle.objects.filter(model=request.META.get("HTTP_MODEL"), fuel=request.META.get("HTTP_FUEL"),
                                       transmission=request.META.get("HTTP_TRANSMISSION"))
     dealers_id = vehicles.values_list('dealerId', flat=True).distinct()
@@ -46,6 +55,9 @@ def find_dealer(request):
 
     # Get user position
     user_pos = (float(request.META.get("HTTP_LATITUDE")), float(request.META.get("HTTP_LONGITUDE")))
+    if not (-90 <= user_pos[0] <= 90) and not (-180 <= user_pos[1] <= 180):
+        return HttpResponseBadRequest(json.dumps({"error": "Invalid user localization please check latitude and "
+                                                           "longitude values"}), status=412)
 
     # Create an array with every dealer and the distance to the client and sort that array
     dealers_to_return = []
@@ -66,8 +78,18 @@ def find_dealer(request):
 
 
 def new_booking(request):
+    if request.META.get("HTTP_PICKUPDATE") is None or request.META.get("HTTP_VEHICLEID") is None \
+            or request.META.get("HTTP_FIRSTNAME") is None or request.META.get("HTTP_LASTNAME") is None:
+        return HttpResponseBadRequest(
+            json.dumps({"error": "One or more fields missing in the message header, the header has to have pickupdate "
+                                 "vehicleID firstname and lastname"}), status=412)
+
     desired_time_slot = datetime.strptime(request.META.get("HTTP_PICKUPDATE"), '%Y-%m-%dT%H:%M:%S')
-    desired_vehicle = Vehicle.objects.get(id=request.META.get("HTTP_VEHICLEID"))
+    try:
+        desired_vehicle = Vehicle.objects.get(id=request.META.get("HTTP_VEHICLEID"))
+    except ObjectDoesNotExist:
+        return HttpResponseBadRequest(json.dumps({"error": "No vehicle for the given ID"}), status=412)
+
     bookings = Booking.objects.filter(vehicleId=desired_vehicle.id, canceledAt__isnull=True,
                                       cancelledReason__isnull=True)
 
@@ -78,11 +100,13 @@ def new_booking(request):
 
     # Check if the vehicle has availability for requested date and time
     if not exists_availability(desired_time_slot, vehicle_availability):
-        return HttpResponse("The vehicle you requested is not available at the time you requested")
+        return HttpResponse(
+            json.dumps({"error": "The vehicle you requested is not available at the time you requested"}), status=412)
 
     # Check if there are no double booking
     if not no_double_booking(desired_time_slot, bookings):
-        return HttpResponse("There is already a test drive for that time and vehicle")
+        return HttpResponse(json.dumps({"error": "There is already a test drive for that time and vehicle"}),
+                            status=412)
 
     # Create and save the booking
     booking_to_save = Booking.objects.create(id=uuid.uuid4(), vehicleId=desired_vehicle,
@@ -92,7 +116,7 @@ def new_booking(request):
                                              createdAt=datetime.now())
     booking_to_save.save()
 
-    return HttpResponse("Test drive booked success")
+    return HttpResponse(json.dumps({"return": "Test drive booked success"}))
 
 
 def cancel_booking(request):
@@ -101,7 +125,7 @@ def cancel_booking(request):
     booking_to_cancel.canceledAt = datetime.now()
     booking_to_cancel.save()
 
-    return HttpResponse("Test drive canceled successfully")
+    return HttpResponse(json.dumps({"return": "Test drive canceled successfully"}))
 
 
 def list_by(attribute):
