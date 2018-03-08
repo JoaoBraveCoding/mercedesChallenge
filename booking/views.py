@@ -5,11 +5,9 @@ from operator import itemgetter
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.core.exceptions import ObjectDoesNotExist
 
-
 from .models import Dealer, Booking, Vehicle
 import json
 import uuid
-
 
 
 def models(request):
@@ -43,7 +41,7 @@ def find_dealer(request):
             or request.META.get("HTTP_TRANSMISSION") is None:
         return HttpResponseBadRequest(
             json.dumps({"error": "One or more fields missing in the message header, the header has to have"
-                                                                            "model fuel and transmission"}), status=412)
+                                 "model fuel and transmission"}), status=412)
     vehicles = Vehicle.objects.filter(model=request.META.get("HTTP_MODEL"), fuel=request.META.get("HTTP_FUEL"),
                                       transmission=request.META.get("HTTP_TRANSMISSION"))
     dealers_id = vehicles.values_list('dealerId', flat=True).distinct()
@@ -120,7 +118,18 @@ def new_booking(request):
 
 
 def cancel_booking(request):
-    booking_to_cancel = Booking.objects.get(id=request.META.get("HTTP_ID"))
+    if request.META.get("HTTP_ID") is None or request.META.get("HTTP_CANCELLEDREASON") is None:
+        return HttpResponseBadRequest(
+            json.dumps({"error": "One or more fields missing in the message header, the header has to have id "
+                                 "and cancelledReason"}), status=412)
+
+    try:
+        booking_to_cancel = Booking.objects.get(id=request.META.get("HTTP_ID"))
+    except ObjectDoesNotExist:
+        return HttpResponseBadRequest(json.dumps({"error": "No booking for the given ID"}), status=412)
+
+    if not (booking_to_cancel.cancelledReason is None and booking_to_cancel.canceledAt is None):
+        return HttpResponse(json.dumps({"error": "Booking already canceled"}), status=412)
     booking_to_cancel.cancelledReason = request.META.get("HTTP_CANCELLEDREASON")
     booking_to_cancel.canceledAt = datetime.now()
     booking_to_cancel.save()

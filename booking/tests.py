@@ -2,7 +2,7 @@ import json
 
 from django.test import TestCase, RequestFactory
 
-from .models import Vehicle, Dealer
+from .models import Vehicle, Dealer, Booking
 from .views import models, fuels, transmissions, dealers, find_dealer, new_booking, cancel_booking
 from datetime import datetime
 
@@ -28,7 +28,7 @@ class ListTestCase(TestCase):
 
         # Create and save some vehicles
         vehicle = Vehicle.objects.create(id="1", dealerId=Dealer.objects.get(id="1"), model="AMG", transmission="AUTO",
-                                         fuel="GASOLINE", availability="wednesday 1000 1100\nfridays 1000 1030")
+                                         fuel="GASOLINE", availability="wednesday 1000 1100\nfriday 1000 1030")
         vehicle.save()
         vehicle = Vehicle.objects.create(id="2", dealerId=Dealer.objects.get(id="1"), model="A", transmission="MANUAL",
                                          fuel="DIESEL", availability="wednesday 1000 1100\nsunday 0800 0830")
@@ -69,6 +69,19 @@ class ListTestCase(TestCase):
                                          transmission="MANUAL",
                                          fuel="DIESEL", availability="monday 1000 1100")
         vehicle.save()
+
+        # Create some bookings
+        booking = Booking.objects.create(id="1", vehicleId=Vehicle.objects.get(id="1"), firstName="Jse", lastName="Ana",
+                                         pickupDate=datetime.strptime('2018-03-16T10:00:00', '%Y-%m-%dT%H:%M:%S'),
+                                         createdAt=datetime.now())
+        booking.save()
+        booking = Booking.objects.create(id="2", vehicleId=Vehicle.objects.get(id="3"), firstName="Manuel",
+                                         lastName="Rambo",
+                                         pickupDate=datetime.strptime('2018-03-28T10:00:00', '%Y-%m-%dT%H:%M:%S'),
+                                         createdAt=datetime.now(),
+                                         canceledAt=datetime.strptime('2018-03-23T10:00:00', '%Y-%m-%dT%H:%M:%S'),
+                                         cancelledReason="Dentist")
+        booking.save()
 
     def test_models_list(self):
         request = self.factory.get('/bookingApp/vehicles/models/')
@@ -145,16 +158,62 @@ class ListTestCase(TestCase):
         self.assertTrue(content[1]['id'] == "2")
 
     def test_new_booking(self):
-        request = self.factory.get('/bookingApp/testDrive/find/', HTTP_MODEL="AMG", HTTP_FUEL="DIESEL",
-                                   HTTP_TRANSMISSION="MANUAL", HTTP_LATITUDE="38.736819", HTTP_LONGITUDE="-9.138705")
-        response = find_dealer(request)
+        request = self.factory.get('/bookingApp/testDrive/new/',
+                                   HTTP_PICKUPDATE='2018-03-14T10:00:00',
+                                   HTTP_VEHICLEID="1",
+                                   HTTP_FIRSTNAME="DANIEL", HTTP_LASTNAME="TESLA")
+        response = new_booking(request)
         body_unicode = response.content.decode('utf-8')
         body = json.loads(body_unicode)
-        self.assertTrue("dealers" in body)
-        content = body['dealers']
-        self.assertTrue(len(content) == 2)
-        self.assertTrue(content[0]['id'] == "3")
-        self.assertTrue(content[1]['id'] == "2")
+        self.assertTrue("return" in body)
+        content = body['return']
+        self.assertEquals(content, "Test drive booked success")
+
+    def test_new_booking_not_good_pick_up(self):
+        request = self.factory.get('/bookingApp/testDrive/new/',
+                                   HTTP_PICKUPDATE='2018-03-15T10:00:00',
+                                   HTTP_VEHICLEID="1",
+                                   HTTP_FIRSTNAME="DANIEL", HTTP_LASTNAME="TESLA")
+        response = new_booking(request)
+        body_unicode = response.content.decode('utf-8')
+        body = json.loads(body_unicode)
+        self.assertTrue("error" in body)
+        content = body['error']
+        self.assertEquals(content, "The vehicle you requested is not available at the time you requested")
+
+    def test_new_booking_double_booking(self):
+        request = self.factory.get('/bookingApp/testDrive/new/',
+                                   HTTP_PICKUPDATE='2018-03-16T10:00:00',
+                                   HTTP_VEHICLEID="1",
+                                   HTTP_FIRSTNAME="DANIEL", HTTP_LASTNAME="TESLA")
+        response = new_booking(request)
+        body_unicode = response.content.decode('utf-8')
+        body = json.loads(body_unicode)
+        self.assertTrue("error" in body)
+        content = body['error']
+        self.assertEquals(content, "There is already a test drive for that time and vehicle")
+
+    def test_cancel_booking(self):
+        request = self.factory.get('/bookingApp/testDrive/cancel/',
+                                   HTTP_ID='1',
+                                   HTTP_CANCELLEDREASON="Operation")
+        response = cancel_booking(request)
+        body_unicode = response.content.decode('utf-8')
+        body = json.loads(body_unicode)
+        self.assertTrue("return" in body)
+        content = body['return']
+        self.assertEquals(content, "Test drive canceled successfully")
+
+    def test_double_cancel_booking(self):
+        request = self.factory.get('/bookingApp/testDrive/cancel/',
+                                   HTTP_ID='2',
+                                   HTTP_CANCELLEDREASON="Operation")
+        response = cancel_booking(request)
+        body_unicode = response.content.decode('utf-8')
+        body = json.loads(body_unicode)
+        self.assertTrue("error" in body)
+        content = body['error']
+        self.assertEquals(content, "Booking already canceled")
 
 
 class ListTestCaseNotPopulated(TestCase):
@@ -216,7 +275,7 @@ class ListTestCaseNotPopulated(TestCase):
 
     def test_new_booking(self):
         request = self.factory.get('/bookingApp/testDrive/new/',
-                                   HTTP_PICKUPDATE='2018-03-15T10:00:00',
+                                   HTTP_PICKUPDATE='2018-03-14T10:00:00',
                                    HTTP_VEHICLEID="1",
                                    HTTP_FIRSTNAME="DANIEL", HTTP_LASTNAME="TESLA")
         response = new_booking(request)
@@ -233,3 +292,20 @@ class ListTestCaseNotPopulated(TestCase):
         self.assertTrue(response.status_code == 412)
         self.assertTrue("error" in body)
 
+    def test_cancel_booking(self):
+        request = self.factory.get('/bookingApp/testDrive/cancel/',
+                                   HTTP_ID='1',
+                                   HTTP_CANCELLEDREASON="Operation")
+        response = cancel_booking(request)
+        body_unicode = response.content.decode('utf-8')
+        body = json.loads(body_unicode)
+        self.assertTrue("error" in body)
+        content = body['error']
+        self.assertEquals(content, "No booking for the given ID")
+
+    def test_cancel_booking_no_params(self):
+        request = self.factory.get('/bookingApp/testDrive/cancel/')
+        response = cancel_booking(request)
+        body_unicode = response.content.decode('utf-8')
+        body = json.loads(body_unicode)
+        self.assertTrue("error" in body)
